@@ -9,7 +9,14 @@ import { authMiddleware } from './middleware/auth.js'
 const app = express()
 const PORT = process.env.PORT || 3001
 
-app.use(cors({ origin: process.env.FRONTEND_URL || '*' }))
+// Robust CORS configuration
+app.use(cors({
+  origin: true, // Reflects the request origin, allowing any domain
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}))
+
 app.use(express.json())
 
 // Health check (Public)
