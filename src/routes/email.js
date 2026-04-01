@@ -87,11 +87,16 @@ router.get('/logs', async (req, res) => {
     const snapshot = await db.collection('logs').get()
     let logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
 
-    // 1. Sort by timestamp descending in-memory
+    // 1. Sort by timestamp descending in-memory (handles multiple formats)
     logs.sort((a, b) => {
-      const timeA = a.timestamp?.seconds || 0
-      const timeB = b.timestamp?.seconds || 0
-      return timeB - timeA
+      const getVal = (obj) => {
+        if (!obj) return 0
+        if (obj.seconds) return obj.seconds // Firestore Timestamp
+        if (obj instanceof Date) return obj.getTime() // JS Date
+        const d = new Date(obj) // String or other
+        return isNaN(d.getTime()) ? 0 : d.getTime()
+      }
+      return getVal(b.timestamp) - getVal(a.timestamp)
     })
 
     // 2. Filter by status

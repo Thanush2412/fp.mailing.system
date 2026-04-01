@@ -21,12 +21,18 @@ export async function authMiddleware(req, res, next) {
     const payload = ticket.getPayload()
     const email = payload.email
 
+    console.log(`[Auth] Verified token for: ${email}`)
+
     // ─── Firestore Check: Is this email allowed? ───
-    if (!db) return res.status(500).json({ error: 'Database not initialized' })
+    if (!db) {
+      console.error('[Auth] Database not initialized')
+      return res.status(500).json({ error: 'Database not initialized' })
+    }
     
     const userDoc = await db.collection('allowed_users').doc(email).get()
     
     if (!userDoc.exists) {
+      console.warn(`[Auth] Access denied for: ${email}`)
       return res.status(403).json({ error: `Access denied. Email ${email} is not authorized.` })
     }
     
@@ -42,7 +48,7 @@ export async function authMiddleware(req, res, next) {
     
     next()
   } catch (err) {
-    console.error('Auth Error:', err.message)
-    res.status(401).json({ error: 'Invalid Google token' })
+    console.error('[Auth] Token verification failed:', err.message)
+    res.status(401).json({ error: `Invalid Google token: ${err.message}` })
   }
 }

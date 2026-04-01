@@ -9,15 +9,27 @@ import { authMiddleware } from './middleware/auth.js'
 const app = express()
 const PORT = process.env.PORT || 3001
 
-// Vercel-Compatible Manual CORS
+// Professional CORS Handler
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Credentials', true)
-  res.setHeader('Access-Control-Allow-Origin', '*')
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'https://fp-mail-system.web.app',
+    'https://fp-mail-system.firebaseapp.com'
+  ]
+  const origin = req.headers.origin
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*')
+  }
+  
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT')
   res.setHeader(
     'Access-Control-Allow-Headers',
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
   )
+  
   if (req.method === 'OPTIONS') {
     res.status(200).end()
     return
