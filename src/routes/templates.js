@@ -4,24 +4,33 @@ import { DEFAULT_TEMPLATES } from '../templatesData.js'
 
 const router = Router()
 
-// Initialize templates if empty
+// Seed defaults into DB if collection is empty
 async function seedTemplates() {
-  if (!db) return
-  const snapshot = await db.collection('templates').limit(1).get()
-  if (snapshot.empty) {
-    const batch = db.batch()
-    DEFAULT_TEMPLATES.forEach(t => {
-      const ref = db.collection('templates').doc(t.id)
-      batch.set(ref, { name: t.name, subject: t.subject, body: t.body })
-    })
-    await batch.commit()
+  try {
+    const snapshot = await db.collection('templates').get()
+    if (snapshot.empty && DEFAULT_TEMPLATES.length > 0) {
+      console.log('Seeding default templates...')
+      const batch = db.batch()
+      DEFAULT_TEMPLATES.forEach(t => {
+        const ref = db.collection('templates').doc(t.id)
+        batch.set(ref, {
+          name: t.name,
+          subject: t.subject,
+          body: t.body
+        })
+      })
+      await batch.commit()
+    }
+  } catch (err) {
+    console.error('Seeding error:', err.message)
   }
 }
 
+seedTemplates()
+
 router.get('/', async (req, res) => {
   try {
-    await seedTemplates()
-    const snapshot = await db.collection('templates').orderBy('name').get()
+    const snapshot = await db.collection('templates').get()
     const templates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
     res.json(templates)
   } catch (err) {
@@ -32,14 +41,20 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   const { id, name, subject, body } = req.body
   try {
-    const templateData = { name, subject, body }
     if (id) {
-      await db.collection('templates').doc(id).set(templateData, { merge: true })
-      res.json({ id, ...templateData })
+      await db.collection('templates').doc(id).set({
+        name,
+        subject,
+        body
+      }, { merge: true })
     } else {
-      const docRef = await db.collection('templates').add(templateData)
-      res.json({ id: docRef.id, ...templateData })
+      await db.collection('templates').add({
+        name,
+        subject,
+        body
+      })
     }
+    res.json({ success: true })
   } catch (err) {
     res.status(400).json({ error: err.message })
   }

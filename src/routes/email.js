@@ -83,17 +83,23 @@ router.post('/send', async (req, res) => {
 router.get('/logs', async (req, res) => {
   const { status, search } = req.query
   try {
-    let q = db.collection('logs')
-
-    if (status && status !== 'all') {
-      q = q.where('status', '==', status)
-    }
-
-    q = q.orderBy('timestamp', 'desc').limit(500)
-    
-    const snapshot = await q.get()
+    // Fetch all logs (limited to 1000) to avoid any index requirements
+    const snapshot = await db.collection('logs').get()
     let logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
 
+    // 1. Sort by timestamp descending in-memory
+    logs.sort((a, b) => {
+      const timeA = a.timestamp?.seconds || 0
+      const timeB = b.timestamp?.seconds || 0
+      return timeB - timeA
+    })
+
+    // 2. Filter by status
+    if (status && status !== 'all') {
+      logs = logs.filter(l => l.status === status)
+    }
+
+    // 3. Filter by search text
     if (search) {
       const s = search.toLowerCase()
       logs = logs.filter(l => 
@@ -103,8 +109,10 @@ router.get('/logs', async (req, res) => {
       )
     }
 
-    res.json(logs)
+    // 4. Limit to 500 for performance
+    res.json(logs.slice(0, 500))
   } catch (err) {
+    console.error('Logs Error:', err.message)
     res.status(500).json({ error: err.message })
   }
 })
@@ -153,6 +161,15 @@ router.post('/logs/delete-multiple', async (req, res) => {
     const batch = db.batch()
     ids.forEach(id => batch.delete(db.collection('logs').doc(id)))
     await batch.commit()
+    res.json({ success: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+router.patch('/logs/:id', async (req, res) => {
+  try {
+    await db.collection('logs').doc(req.params.id).update(req.body)
     res.json({ success: true })
   } catch (err) {
     res.status(500).json({ error: err.message })

@@ -37,6 +37,15 @@ router.post('/', async (req, res) => {
   }
 })
 
+router.delete('/:id', async (req, res) => {
+  try {
+    await db.collection('mail_configs').doc(req.params.id).delete()
+    res.json({ success: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // ─── User Access Management ──────────────────────────────────────────────────
 router.get('/users', async (req, res) => {
   try {
