@@ -17,19 +17,31 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   const { scripts, activeId } = req.body
   try {
+    // Get existing script IDs to detect deletions
+    const existing = await db.collection('mail_configs').get()
+    const existingIds = new Set(existing.docs.map(d => d.id))
+    const incomingIds = new Set(scripts.map(s => s.id))
+
     const batch = db.batch()
-    
-    // In Firestore, we update individual docs
+
+    // Delete scripts that were removed
+    for (const id of existingIds) {
+      if (!incomingIds.has(id)) {
+        batch.delete(db.collection('mail_configs').doc(id))
+      }
+    }
+
+    // Upsert incoming scripts
     for (const s of scripts) {
       const ref = db.collection('mail_configs').doc(s.id)
       batch.set(ref, {
         name: s.name,
         url: s.url,
         email: s.email,
-        is_active: s.id === activeId ? 1 : 0
+        is_active: s.id === activeId ? 1 : 0,
       }, { merge: true })
     }
-    
+
     await batch.commit()
     res.json({ success: true })
   } catch (err) {
@@ -73,8 +85,9 @@ router.post('/users', async (req, res) => {
 
 router.delete('/users/:email', async (req, res) => {
   const { email } = req.params
-  if (email === 'thanush@faceprep.in') {
-    return res.status(403).json({ error: 'Cannot remove primary admin' })
+  // Prevent removing yourself (the requesting admin)
+  if (email === req.user?.email) {
+    return res.status(403).json({ error: 'Cannot remove your own admin account' })
   }
   try {
     await db.collection('allowed_users').doc(email).delete()
